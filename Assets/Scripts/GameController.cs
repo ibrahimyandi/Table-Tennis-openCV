@@ -10,24 +10,30 @@ using UnityEngine.UI;
 
 public class GameController : MonoBehaviour
 {
-    public GameObject ball;
-    public Racket racketBot;
-    public Racket racketPlayer;
+    public AnimationController animationController;
+    public Table table;
+    public Transform ballTransform;
+    public Rigidbody ballRigidBody;
+    public Collider ballCollider;
     public Bot bot;
     public Player player;
-    public int scoreBot;
-    public int scorePlayer;
     public Text textScoreBot;
     public Text textScorePlayer;
     public Text textResult;
     public Text textGameResult;
+    public GameObject btnResume;
+    public GameObject btnPause;
+    public Image menuBG;
     public bool botPaddleCollision = false;
     public bool playerPaddleCollision = false;
-    private float time;
-    public bool flagBot = false;
+    private int totalServe = 0;
+    private float time = 0;
+    private float timeShot = 0;
+    private int finalScore = 12;
 
-    public enum gameState
+    private enum gameState
     {
+        pause,
         botStart,
         playerStart,
 
@@ -37,129 +43,310 @@ public class GameController : MonoBehaviour
         playerSide,
         botSide,
 
-        losePoint,
-        winPoint
+        winPoint,
+        losePoint
     }
-    public static gameState state;
-    void Start()
+    private static gameState state = gameState.pause;
+    private static gameState lastState = gameState.pause;
+    private float ballMaxX = 12f;  // Maximum x koordinatı
+    private float ballMinY = 3f; // Minimum y koordinatı
+    private float ballMaxY = 12f;  // Maximum y koordinatı
+    private float ballMinX = -12f; // Minimum x koordinatı
+    private void Awake()
     {
         
-        StartGame();
+    }
+    private void Start()
+    {
+        animationController.CamIdleAnimation();
+    }
+
+    private void Update()
+    {
+        if (state != gameState.pause)
+        {
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                PauseGame();
+            }
+            Vector3 ballPosition = ballTransform.position;
+            if (ballPosition.x < ballMinX || ballPosition.x > ballMaxX || ballPosition.y < ballMinY || ballPosition.y > ballMaxY)
+            {
+                OutsideCollider();
+            }
+            if (state == gameState.playerStart)
+            {
+                if (playerPaddleCollision == true)
+                {
+                    state = gameState.playerPaddle;
+                    TextGameResultUpdate();
+                    playerPaddleCollision = false;
+                }
+                else
+                {
+                    Serving();
+                }
+            }
+            else if (state == gameState.botStart)
+            {
+                if (botPaddleCollision == true)
+                {
+                    state = gameState.botPaddle;
+                    TextGameResultUpdate();
+                    botPaddleCollision = false;
+                }
+                else
+                {
+                    Serving();
+                }
+            }
+            else if (state == gameState.botPaddle)
+            {
+                if (playerPaddleCollision == true)
+                {
+                    state = gameState.playerPaddle;
+                    TextGameResultUpdate();
+                    playerPaddleCollision = false;
+                }
+                else
+                {
+                    timeShot -= Time.deltaTime;
+                    if (timeShot <= 0f)
+                    {
+                        OutsideCollider();
+                    }
+                }
+            }
+            else if (state == gameState.playerPaddle)
+            {
+                if (botPaddleCollision == true)
+                {
+                    state = gameState.botPaddle;
+                    TextGameResultUpdate();
+                    botPaddleCollision = false;
+                }
+                else
+                {
+                    timeShot -= Time.deltaTime;
+                    if (timeShot <= 0f)
+                    {
+                        OutsideCollider();
+                    }
+                }
+            }
+            BotAction();
+        }
     }
 
     public void StartGame()
     {
-        state = gameState.playerStart;
-        scoreBot = 0;
-        scorePlayer = 0;
-        textScoreBot.text = scoreBot.ToString();
-        textScorePlayer.text = scorePlayer.ToString();
-        time = -1f;
+        menuBG.enabled = false;
+        totalServe = 0;
+        animationController.MenuUpAnimation();
+        animationController.CamStartAnimation();
+        StartRound();
+        ScoreUpdate(textScoreBot, 0);
+        ScoreUpdate(textScorePlayer, 0);
+        TextGameResultUpdate();
+        btnPause.SetActive(true);
+    }
+    
+    public void ResumeGame()
+    {
+        animationController.MenuUpAnimation();
+        btnPause.SetActive(true);
+        menuBG.enabled = false;
+        state = lastState;
     }
 
-    public void TextGameResultUpdate()
+    public void PauseGame()
+    {
+        lastState = state;
+        state = gameState.pause;
+        menuBG.enabled = true;
+        animationController.MenuDownAnimation();
+        animationController.CamStartAnimation();
+        btnResume.SetActive(true);
+        btnPause.SetActive(false);
+        textResult.text = "PAUSED";
+    }
+
+    public void QuitGame()
+    {
+        #if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+        #else
+                Application.Quit();
+        #endif
+    }
+
+    private void FinishGame()
+    {
+        if (textScorePlayer.text == finalScore.ToString())
+        {
+            textResult.text = "VICTORY";
+        }
+        else if (textScoreBot.text == finalScore.ToString())
+        {
+            textResult.text = "DEFEAT";
+        }
+        state = gameState.pause;
+        btnResume.SetActive(false);
+        animationController.CamFinishAnimation();
+    }
+
+    private void ScoreUpdate(Text text, int score)
+    {
+        text.text = score.ToString();
+        if (score >= finalScore)
+        {
+            FinishGame();
+        }
+    }
+
+
+    private void TextGameResultUpdate()
     {
         if (state == gameState.botStart)
         {
-            textGameResult.text = "BotStart";
+            textGameResult.text = "AI makes a shot.";
         }
         else if (state == gameState.playerStart)
         {
-            textGameResult.text = "PlayerStart";
+            textGameResult.text = "Player makes a shot.";
         }
         else if (state == gameState.botPaddle)
         {
-            textGameResult.text = "BotPaddle";
+            textGameResult.text = "The AI has made a shot.";
+        }
+        else if (state == gameState.playerPaddle)
+        {
+            textGameResult.text = "The Player has made a shot.";
+        }
+        else if (state == gameState.pause)
+        {
+            textGameResult.text = "Paused";
+        }
+    }
+
+    private void BotAction()
+    {
+        if (state == gameState.botStart)
+        {
+            time -= Time.deltaTime;
+            if (time <= 0f)
+            {
+                ballCollider.enabled = true;
+                bot.FollowTarget(ballTransform);
+            }
+            else
+            {
+                ballCollider.enabled = false;
+                bot.FirstPosition();
+            }
+        }
+        else if (state == gameState.playerPaddle)
+        {
+            bot.FollowTarget(ballTransform);
+        }
+        else if (state == gameState.playerStart)
+        {
+            time -= Time.deltaTime;
+            if (time <= 0f)
+            {
+                ballCollider.enabled = true;
+            }
+            else
+            {
+                ballCollider.enabled = false;
+                bot.ResetPosition();
+            }
         }
         else if (state == gameState.botPaddle)
         {
-            textGameResult.text = "PlayerPaddle";
+            bot.ResetPosition();
         }
     }
 
-    void Update()
+    private void Serving()
     {
-        if (scoreBot >= 12)
-        {
-            textResult.text = "YOU LOSE :(";
-        }
-        else if (scorePlayer >= 12)
-        {
-            textResult.text = "YOU Win :(";
-        }
-
-        if (state == gameState.playerStart)
-        {
-            if (playerPaddleCollision == true)
-            {
-                state = gameState.playerPaddle;
-                playerPaddleCollision = false;
-            }
-            else
-            {
-                Serving(racketPlayer);
-            }
-        }
-        else if (state == gameState.botStart)
-        {
-            if (time == -1f)
-            {
-                time = Time.time;
-            }
-            else if (Time.time - time > 2f)
-            {
-                //BOT SERVİS KULLANACAK
-                time = -1f;
-                state = gameState.botPaddle;
-            }
-            if (botPaddleCollision == true)
-            {
-                state = gameState.botStart;
-                botPaddleCollision = false;
-            }
-            else
-            {
-                Serving(racketBot);
-            }
-        }
-        BotAction();
-        TextGameResultUpdate();
+        BallReset();
     }
 
-    public void BotAction()
+    private void BallReset()
     {
-        if (flagBot == true)
+        float averageZCoordinate;
+        if (state == gameState.botStart)
         {
-            bot.FollowBall();
+            averageZCoordinate = (0 + bot.transform.position.z) / 4;
+            ballTransform.position = new Vector3(8, 7, averageZCoordinate);
+        }
+        else if (state == gameState.playerStart)
+        {
+            averageZCoordinate = (0 + player.transform.position.z) / 4;
+            ballTransform.position = new Vector3(-8, 7, averageZCoordinate);
+        }
+        ballRigidBody.velocity = Vector3.zero;
+        ballRigidBody.angularVelocity = Vector3.zero;
+    }
+
+    protected void StartRound()
+    {
+        if (state == gameState.winPoint)
+        {
+            ScoreUpdate(textScorePlayer, int.Parse(textScorePlayer.text)+1);
+
+        }
+        else if (state == gameState.losePoint)
+        {
+            ScoreUpdate(textScoreBot, int.Parse(textScoreBot.text)+1);
+        }
+
+        table.ResetBounce();
+        totalServe++;
+        time = 3f;
+        timeShot = 8f;
+        if (totalServe % 4 == 1 || totalServe % 4 == 2)
+        {
+            state = gameState.botStart;
+            bot.FirstPositionRatio();
         }
         else
         {
-            racketBot.ResetPosition();
+            state = gameState.playerStart;
         }
+
+        bot.FirstPositionRatio();
+        TextGameResultUpdate();
+        Serving();
     }
 
-    public void Serving(Racket racket)
+    protected void OutsideCollider()
     {
-        float averageZCoordinate;
-        if (racket.name == "Racket_Bot")
+        if (state == gameState.playerPaddle)
         {
-            averageZCoordinate = (0 + racketBot.transform.position.z) / 2;
-            ball.transform.position = new Vector3(7, 7, averageZCoordinate);
+            if (table.botAreaBounce >= 1)
+            {
+                state = gameState.winPoint;
+            }
+            else
+            {
+                state = gameState.losePoint;
+            }
         }
-        else if (racket.name == "Racket_Player")
+        else if (state == gameState.botPaddle)
         {
-            averageZCoordinate = (0 + racketPlayer.transform.position.z) / 2;
-            ball.transform.position = new Vector3(-7, 7, averageZCoordinate);
+            if (table.playerAreaBounce >= 1)
+            {
+                state = gameState.losePoint;
+            }
+            else
+            {
+                state = gameState.winPoint;
+            }
         }
+        StartRound();
     }
-
-    public void StartRound(){
-        ball.transform.position = new Vector3(4, 10f, 0);
-    }
-
-    //X = -10, 0
-    //Y = 5, 10
-    //Z = 5, -5
 
     public void TrackingRacket(float x, float y, float recWidth, float recHeight, float camWidth, float camHeight){
         player.PlayerUpdate(x, y, recWidth, recHeight, camWidth, camHeight);

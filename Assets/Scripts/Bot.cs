@@ -2,50 +2,72 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Bot : MonoBehaviour
+public class Bot : Racket
 {
-    public GameController gameController;
-    public Transform ballTransform;
-    public Collider ballCollider;
-    public float hitDistance = 1f;
-    private float hitForce = 1f;
-    private float speed = 5.0f;
-    public void FollowBall()
+    public Vector3 normalPosition;
+    public float servisPositionZ;
+    public float servisRotationY;
+    private float ratio = 0;
+
+    private float MaxX = 10f;
+    private float MaxY = 8f;
+    private float MaxZ = 5;
+    private float MinX = 6f;
+    private float MinY = 5f;
+    private float MinZ = -5;
+
+    private void Start()
     {
-        float step = speed * Time.deltaTime;
-        transform.position = Vector3.MoveTowards(transform.localPosition, ballTransform.localPosition, step);
+        FirstPosition();
+    }
 
-        Vector3 closestPointEnemy = GetComponent<BoxCollider>().ClosestPointOnBounds(ballTransform.position);
-        float enemydistance = Vector3.Distance(closestPointEnemy, ballTransform.position);
+    private void Update()
+    {
+        Vector3 newPosition = transform.position;
+        newPosition.x = Mathf.Clamp(newPosition.x, MinX, MaxX);
+        newPosition.y = Mathf.Clamp(newPosition.y, MinY, MaxY);
+        newPosition.z = Mathf.Clamp(newPosition.z, MinZ, MaxZ);
+        transform.position = newPosition;
+    }
+    public void FirstPositionRatio()
+    {
+        ratio = Random.Range(0f, 1f);
+    }
 
-        if (enemydistance < 0.2)
+    public void FirstPosition()
+    {
+        servisPositionZ = Mathf.Lerp(-3f, 3f, ratio);
+        servisRotationY = Mathf.Lerp(160f, 200f, ratio);
+
+        if (gameObject.name == "Racket_Bot")
         {
-
-            Vector3 fromPaddleToBall = ballTransform.position - transform.position;
-            if (Vector3.Dot(fromPaddleToBall, transform.up) > 0)
-            {
-            ballCollider.GetComponent<Rigidbody>().velocity = transform.up * 3 + transform.forward * 3;
-            }
-            else
-            {
-                ballCollider.GetComponent<Rigidbody>().velocity = - transform.up * 3 + transform.forward * 2;
-
-            }
-
-            gameController.botPaddleCollision = true;
+            transform.position = Vector3.MoveTowards(transform.localPosition, new Vector3(10, 6, servisPositionZ), speed * Time.deltaTime);
+            transform.rotation = Quaternion.Euler(0, servisRotationY, 90);
         }
     }
 
-    void OnCollisionEnter(Collision collision)
+    public void WaitBall(Vector3 ballTransform)
+    {
+        float step = speed * Time.deltaTime;
+        Vector3 targetPosition = new Vector3(transform.position.x, transform.position.y, ballTransform.z);
+        transform.position = Vector3.MoveTowards(transform.localPosition, targetPosition, step);
+    }
+
+    public void ResetPosition()
+    {
+        float step = speed * Time.deltaTime;
+        Vector3 targetPosition = new Vector3(10, 6, 0);
+        Vector3 targetRotation = new Vector3(0, 180, 90);
+
+        transform.position = Vector3.MoveTowards(transform.localPosition, targetPosition, step);
+    }
+  
+    private void OnCollisionEnter(Collision collision)
     {
         if (collision.collider == ballCollider)
         {
-            HitBall();
+            HitBall(collision);
+            gameController.botPaddleCollision = true;
         }
-    }
-
-    void HitBall()
-    {
-        ballTransform.GetComponent<Rigidbody>().AddForce(Vector3.right * hitForce, ForceMode.Impulse);
     }
 }

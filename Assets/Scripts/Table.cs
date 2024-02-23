@@ -4,9 +4,12 @@ using UnityEngine;
 
 public class Table : MonoBehaviour
 {
+    public SoundController soundController;
     public Transform ballTransform;
     public Collider ballCollider;
-
+    public int playerAreaBounce = 0;
+    public int botAreaBounce = 0;
+    
     void Update()
     {
     }
@@ -17,14 +20,22 @@ public class Table : MonoBehaviour
         float ballY = ballTransform.position.y;
         if (ballY > 5 && collision.collider == ballCollider)
         {
+            soundController.SoundCollider(ballTransform.position);
             if (ballX > 0.25f && ballX < 7)
             {
-                Debug.Log("Top BOT bölümüne düştü.");
+                botAreaBounce++;
+                // Debug.Log("Top BOT bölümüne düştü. " + botAreaBounce);
             }
             else if (ballX > -7 && ballX < -0.25f)
             {
-                Debug.Log("Top PLAYER bölümüne düştü.");
+                playerAreaBounce++;
+                // Debug.Log("Top PLAYER bölümüne düştü." + playerAreaBounce);
             }    
         }
+    }
+
+    public void ResetBounce(){
+        playerAreaBounce = 0;
+        botAreaBounce = 0;
     }
 }

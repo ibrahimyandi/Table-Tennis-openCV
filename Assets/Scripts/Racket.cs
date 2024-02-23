@@ -4,39 +4,50 @@ using UnityEngine;
 
 public class Racket : MonoBehaviour
 {
-    private float speed = 50f;
-    public Transform ball;
+    public Transform ballTransform;
+    public Collider ballCollider;
+    public GameController gameController;
+    public SoundController soundController;
 
-    void Update()
+    private Vector3 lastRacketPosition;
+    
+    protected float speed = 5.0f;
+    protected float hitForce = 17f;
+    private void Start()
     {
-   
+        lastRacketPosition = transform.position;
     }
-    public void RacketRotation(Racket racket)
+
+    protected void RacketRotation(Vector3 targetRotation)
     {
         Vector3 raketPozisyon = transform.position;
-        Vector3 topPozisyon;
-        if (racket.name == "Racket_Bot")
-        {
-            topPozisyon = new Vector3(-7, 5, 0);
-        }
-        else
-        {
-            topPozisyon = new Vector3(7, 5, 0);
-        }
-
-        Vector3 hedefYonu = topPozisyon - raketPozisyon;
+        Vector3 hedefYonu = targetRotation - raketPozisyon;
 
         float hedefYonuAci = Mathf.Atan2(hedefYonu.x, hedefYonu.z) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, hedefYonuAci + 90, 90);
     }
-    public void Move(Vector3 targetPosition)
+    public void FollowTarget(Transform targetPosition)
     {
-        Vector3 racketPosition = transform.position;
-        transform.position = Vector3.MoveTowards(racketPosition, targetPosition, speed * Time.deltaTime);
+        float currentRacketSpeed = Vector3.Distance(transform.position, lastRacketPosition) / Time.deltaTime;
+        lastRacketPosition = transform.position;
+        hitForce = Mathf.Clamp(currentRacketSpeed, 1 * hitForce, 7 * hitForce);
+        if (gameObject.name == "Racket_Bot")
+        {
+            hitForce = 16f;
+        }
+
+        float step = speed * Time.deltaTime;
+        transform.position = Vector3.MoveTowards(transform.localPosition, targetPosition.localPosition, step);
     }
-    public void ResetPosition()
+
+    protected void HitBall(Collision collision)
     {
-        transform.position = new Vector3(10, 6, 0);
-        transform.rotation = Quaternion.Euler(0, 180, 90);
+        Vector3 hitPoint = collision.contacts[0].point;
+        Vector3 racketCenter = collision.gameObject.transform.position;
+        Vector3 hitDirection = (hitPoint - racketCenter).normalized;
+
+        soundController.SoundCollider(ballTransform.position);
+
+        ballCollider.GetComponent<Rigidbody>().AddForce(hitDirection * hitForce, ForceMode.Impulse);
     }
 }

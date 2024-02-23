@@ -67,8 +67,6 @@
 			maskRed.Erode(null, iterations: 2);
 			maskRed.Dilate(null, iterations: 2);
 
-			
-
 			Mat hsvBlack = frame.CvtColor(ColorConversionCodes.BGR2HSV);
 			Mat maskBlack = hsvBlack.InRange(lowerColorBlack, upperColorBlack);
 
@@ -86,7 +84,6 @@
 			if (redContours.Length > 0)
 			{
 				var maxContour = redContours.OrderByDescending(c => Cv2.ContourArea(c)).First();
-
 				double area = Cv2.ContourArea(maxContour);
 
 				if (area > areaThreshold)
@@ -97,13 +94,11 @@
 					Point endPoint = new Point(objectRoi.X + objectRoi.Width, objectRoi.Y + objectRoi.Height);
 
 					Cv2.Rectangle(frame, startPoint, endPoint, new Scalar(0, 255, 0), 5);
-
 				}
 			}
 			else if (blackContours.Length > 0)
 			{
 				var maxContour = blackContours.OrderByDescending(c => Cv2.ContourArea(c)).First();
-
 				double area = Cv2.ContourArea(maxContour);
 
 				if (area > areaThreshold)
@@ -115,7 +110,6 @@
 
 					Cv2.Rectangle(frame, startPoint, endPoint, new Scalar(0, 255, 0), 5);
 				}
-
 			}
 
 			Vector2 sp = ConvertToImageSpace(startPoint, frame.Size());
